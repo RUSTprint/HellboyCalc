@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kalkulator Oględzin + Mapa </title>
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <title>Hellboy Kalkulator v14</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root { --primary: #2563eb; --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; }
         .app-card { width: 100%; max-width: 600px; margin: 0 auto; background: var(--card); border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 15px; box-sizing: border-box; }
         .header { background: var(--primary); color: white; padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: center; }
-        .point-row { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 10px; position: relative; border-left: 4px solid #cbd5e1; }
+        .point-row { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-bottom: 12px; position: relative; border-left: 4px solid #cbd5e1; }
         .point-row.is-last { border-left-color: #10b981; background: #f0fdf4; }
         input { width: 100%; padding: 12px; border: 2px solid #f1f5f9; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none; }
         .stat-badge { background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569; margin-top: 8px; display: inline-block; }
@@ -19,25 +20,27 @@
         .suggestion-item { padding: 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 14px; }
         .summary-box { background: #1e293b; color: white; border-radius: 12px; padding: 15px; margin-top: 15px; }
         .sum-total { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155; font-size: 1.4rem; font-weight: bold; color: #34d399; }
-        #map { height: 250px; width: 100%; border-radius: 12px; margin-top: 15px; border: 1px solid #e2e8f0; display: none; }
+        #map { height: 280px; width: 100%; border-radius: 12px; margin-top: 15px; border: 1px solid #e2e8f0; display: none; }
         .remove-btn { position: absolute; top: 10px; right: 10px; color: #ef4444; border: none; background: none; cursor: pointer; font-size: 18px; }
-        .loading { opacity: 0.5; pointer-events: none; }
+        .loading-overlay { display: none; text-align: center; padding: 10px; color: var(--primary); font-weight: bold; font-size: 12px; }
     </style>
 </head>
 <body>
 
-<div class="app-card" id="app-container">
+<div class="app-card">
     <div class="header">
         <h2 style="margin:0; font-size: 18px;">Hellboy Kalkulator</h2>
-        <div style="font-size: 11px; opacity: 0.9;">Start/Powrót: Fuchsbreite 39, Hardegsen</div>
+        <div style="font-size: 11px; opacity: 0.9;">Baza: Fuchsbreite 39, Hardegsen</div>
     </div>
 
     <div id="points-list"></div>
     <button onclick="addNewPoint()" style="width:100%; padding:15px; margin:10px 0; border-radius:12px; border:none; background:#e2e8f0; font-weight:bold; cursor:pointer;">+ DODAJ PUNKT</button>
 
+    <div id="loader" class="loading-overlay">⏳ Obliczam trasę autostradami...</div>
+
     <div class="summary-box">
         <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;"><span>Dystans całkowity:</span> <b id="total-dist">0 km</b></div>
-        <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;"><span>Szacowany czas:</span> <b id="total-time">0h 0m</b></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;"><span>Czas jazdy:</span> <b id="total-time">0h 0m</b></div>
         <div class="sum-total"><span>DO ZAPŁATY:</span> <span id="total-all">0,00 €</span></div>
     </div>
 
@@ -47,7 +50,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const HOME = { lat: 51.6517, lng: 9.8294 };
-const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjdlODZlZjkwZmRmYjQ2MjRiNmJmOTIyNmYwZTA5MWJiIiwiaCI6Im11cm11cjY0In0=';
+const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjdlODZlZjkwZmRmYjQ2MjRiNmJmOTIyNmYwZTA5MWJiIiwiaCI6Im11cm11cjY0In0='; 
 
 let map, routeLayer;
 
@@ -56,8 +59,8 @@ function addNewPoint() {
     const html = `
         <div class="point-row" id="row-${id}">
             <button class="remove-btn" onclick="removePoint(${id})">×</button>
-            <label style="font-size:10px; color:#64748b; font-weight:bold;">MIEJSCE OGLĘDZIN:</label>
-            <input type="text" placeholder="Kod pocztowy / Miasto..." oninput="handleSearch(event, ${id})" autocomplete="off">
+            <label style="font-size:10px; color:#64748b; font-weight:bold;">ADRES OGLĘDZIN:</label>
+            <input type="text" placeholder="Np. 44135 Dortmund..." oninput="handleSearch(event, ${id})" autocomplete="off">
             <div class="suggestions" id="sugg-${id}"></div>
             <input type="hidden" id="lat-${id}"><input type="hidden" id="lng-${id}">
             <div id="stats-${id}"></div>
@@ -77,16 +80,31 @@ async function handleSearch(e, id) {
     if(query.length < 3) { suggBox.style.display = 'none'; return; }
     
     try {
-        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=de&countrycode=de`);
+        // Naprawiony URL: tylko podstawowe parametry dla stabilności
+        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`);
         const data = await res.json();
+        
+        if (!data || !data.features) return;
+
         suggBox.innerHTML = '';
         suggBox.style.display = 'block';
-        data.features.forEach(f => {
+        
+        // Filtrujemy tylko Niemcy
+        const deResults = data.features.filter(f => f.properties.countrycode === 'DE').slice(0, 5);
+        
+        if (deResults.length === 0) {
+            suggBox.innerHTML = '<div class="suggestion-item">Nie znaleziono adresu w DE</div>';
+            return;
+        }
+
+        deResults.forEach(f => {
             const d = document.createElement('div');
             d.className = 'suggestion-item';
-            d.innerText = `${f.properties.postcode || ''} ${f.properties.city || ''} ${f.properties.name || ''}`;
+            const p = f.properties;
+            const label = `${p.postcode || ''} ${p.city || p.town || ''} ${p.name || ''}`.trim();
+            d.innerText = label;
             d.onclick = () => {
-                e.target.value = d.innerText;
+                e.target.value = label;
                 document.getElementById(`lat-${id}`).value = f.geometry.coordinates[1];
                 document.getElementById(`lng-${id}`).value = f.geometry.coordinates[0];
                 suggBox.style.display = 'none';
@@ -94,12 +112,12 @@ async function handleSearch(e, id) {
             };
             suggBox.appendChild(d);
         });
-    } catch(err) { console.error(err); }
+    } catch(err) { console.error("Search error:", err); }
 }
 
 async function calculate() {
     const rows = Array.from(document.querySelectorAll('.point-row'));
-    const app = document.getElementById('app-container');
+    const loader = document.getElementById('loader');
     let activePoints = [];
     
     rows.forEach((row, index) => {
@@ -108,16 +126,16 @@ async function calculate() {
         const lng = document.getElementById(`lng-${id}`).value;
         if (lat && lng) {
             activePoints.push([parseFloat(lng), parseFloat(lat)]);
-            row.classList.toggle('is-last', false);
+            row.classList.remove('is-last');
+            document.getElementById(`stats-${id}`).innerHTML = '';
         }
     });
 
     if (activePoints.length === 0) return;
     
-    
     rows[rows.length-1].classList.add('is-last');
-    
-    app.classList.add('loading');
+    loader.style.display = 'block';
+
     let allCoords = [[HOME.lng, HOME.lat], ...activePoints, [HOME.lng, HOME.lat]];
 
     try {
@@ -130,13 +148,13 @@ async function calculate() {
             body: JSON.stringify({ 
                 coordinates: allCoords,
                 preference: 'fastest',
-                options: { avoid_features: ["unpavedroads"] } 
+                options: { avoid_features: ["unpavedroads", "ferries"] } 
             })
         });
         
         const data = await response.json();
         
-        if (data.features) {
+        if (data.features && data.features.length > 0) {
             const route = data.features[0];
             const summary = route.properties.summary;
             const dist = summary.distance / 1000;
@@ -144,32 +162,31 @@ async function calculate() {
 
             document.getElementById('total-dist').innerText = dist.toFixed(1) + ' km';
             document.getElementById('total-time').innerText = Math.floor(time/3600) + 'h ' + Math.floor((time%3600)/60) + 'm';
-            document.getElementById('total-all').innerText = (Math.max(25, dist * 0.49) + (activePoints.length * 85)).toFixed(2) + ' €';
+            
+            const fuelCost = Math.max(25, dist * 0.49);
+            const total = fuelCost + (activePoints.length * 85);
+            document.getElementById('total-all').innerText = total.toFixed(2) + ' €';
 
-            // Mapa i etykieta "Zawiera powrót"
             document.getElementById('map').style.display = 'block';
             if(!map) { 
                 map = L.map('map').setView([HOME.lat, HOME.lng], 8); 
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                L.marker([HOME.lat, HOME.lng]).addTo(map).bindPopup("Hardegsen (Start/Meta)");
+                L.marker([HOME.lat, HOME.lng]).addTo(map);
             }
             if(routeLayer) map.removeLayer(routeLayer);
             routeLayer = L.geoJSON(route, { style: { color: '#2563eb', weight: 6, opacity: 0.8 } }).addTo(map);
             map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
 
-            
             const lastId = rows[rows.length-1].id.split('-')[1];
-            document.getElementById(`stats-${lastId}`).innerHTML = '<div class="stat-badge badge-return">Z doliczonym powrotem do bazy</div>';
+            document.getElementById(`stats-${lastId}`).innerHTML = '<div class="stat-badge badge-return">Trasa zawiera powrót do bazy</div>';
         }
     } catch(e) { 
-        console.error("Błąd kalkulacji:", e); 
-        alert("Błąd połączenia z serwerem map. Sprawdź klucz API.");
+        console.error(e);
     } finally {
-        app.classList.remove('loading');
+        loader.style.display = 'none';
     }
 }
 
-// Inicjalizacja
 addNewPoint();
 </script>
 </body>
