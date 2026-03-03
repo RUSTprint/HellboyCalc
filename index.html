@@ -4,57 +4,65 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-    <title>Kalkulator Oględzin + Mapa</title>
+    
+    <link rel="preconnect" href="https://photon.komoot.io">
+    <link rel="preconnect" href="https://router.project-osrm.org">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <title>Kalkulator oględzin z Mapą</title>
     <style>
         :root { --primary: #2563eb; --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; }
-        .app-card { width: 100%; max-width: 600px; margin: 0 auto; background: var(--card); border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 15px; box-sizing: border-box; }
-        .header { background: var(--primary); color: white; padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: center; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
+        .app-card { width: 100%; max-width: 600px; margin: 0 auto; background: var(--card); border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 20px; box-sizing: border-box; }
+        .header { background: var(--primary); color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center; position: relative; }
         
-        .point-row { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 10px; position: relative; border-left: 4px solid #cbd5e1; }
-        .point-row.ready { border-left-color: #10b981; }
+        .loader-spinner { display: none; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite; position: absolute; right: 15px; top: 22px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .point-row { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-bottom: 12px; position: relative; border-left: 4px solid #cbd5e1; }
+        .point-row.is-last { border-left-color: #10b981; background: #f0fdf4; }
         
         label { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 5px; }
-        .input-row { display: flex; gap: 5px; margin-bottom: 8px; }
-        input { padding: 10px; border: 2px solid #f1f5f9; border-radius: 8px; font-size: 16px; outline: none; width: 100%; box-sizing: border-box; }
-        .input-zip { flex: 1; }
-        .input-city { flex: 2; }
-
-        .btn-check { background: #3b82f6; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; }
-        .btn-check.verified { background: #10b981; }
-
-        #map { height: 250px; width: 100%; border-radius: 12px; margin-top: 15px; border: 1px solid #e2e8f0; display: none; }
-
-        .btn-add { width: 100%; padding: 14px; background: #e2e8f0; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin: 10px 0; color: #475569; }
+        input { width: 100%; padding: 12px; border: 2px solid #f1f5f9; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none; }
         
-        .summary-box { background: #1e293b; color: white; border-radius: 12px; padding: 15px; margin-top: 15px; }
-        .sum-line { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 13px; opacity: 0.8; }
-        .route-info { font-size: 11px; color: #34d399; margin-bottom: 10px; font-weight: bold; border: 1px dashed #34d399; padding: 5px; border-radius: 4px; text-align: center; }
-        .sum-total { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155; font-size: 1.3rem; font-weight: bold; color: #34d399; }
-        .remove-btn { position: absolute; top: 8px; right: 8px; color: #ef4444; border: none; background: none; font-size: 16px; cursor: pointer; }
+        .row-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .stat-badge { background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569; }
+        .badge-return { background: #10b981; color: white; border-color: #059669; }
+
+        .suggestions { position: absolute; left: 15px; right: 15px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); z-index: 1000; max-height: 200px; overflow-y: auto; display: none; }
+        .suggestion-item { padding: 14px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 14px; line-height: 1.4; }
+
+        .btn-add { width: 100%; padding: 16px; background: #e2e8f0; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin: 10px 0; color: #475569; font-size: 14px; }
         
-        .loader { width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; margin-right: 5px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .summary-box { background: #1e293b; color: white; border-radius: 12px; padding: 20px; margin-top: 20px; }
+        .sum-line { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; opacity: 0.8; }
+        .sum-total { display: flex; justify-content: space-between; margin-top: 15px; padding-top: 15px; border-top: 1px solid #334155; font-size: 1.5rem; font-weight: bold; color: #34d399; }
+        .min-info { font-size: 11px; color: #fbbf24; margin-bottom: 10px; font-weight: bold; display: none; }
+        .remove-btn { position: absolute; top: 10px; right: 10px; color: #ef4444; border: none; background: none; font-size: 12px; cursor: pointer; padding: 5px; }
+        
+        #map { height: 250px; width: 100%; border-radius: 12px; margin-top: 20px; border: 1px solid #e2e8f0; display: none; }
+        .loading { opacity: 0.6; pointer-events: none; }
     </style>
 </head>
 <body>
 
-<div class="app-card">
+<div class="app-card" id="app">
     <div class="header">
-        <h2 style="margin:0; font-size: 17px;">Kalkulator Trasy z Mapą</h2>
-        <div style="font-size: 11px; opacity: 0.9;">Start/Powrót: Fuchsbreite 39, 37181 Hardegsen</div>
+        <h2 style="margin:0; font-size: 18px;">Kalkulator oględzin</h2>
+        <div id="main-spinner" class="loader-spinner"></div>
+        <div style="font-size: 11px; opacity: 0.9; margin-top: 5px;">📍 Fuchsbreite 39, 37181 Hardegsen</div>
     </div>
 
     <div id="points-list"></div>
+
     <button class="btn-add" onclick="addNewPoint()">+ DODAJ KOLEJNY PUNKT</button>
 
     <div class="summary-box">
-        <div id="route-label" class="route-info" style="display:none;">🔄 TRASA ZAWIERA POWRÓT DO BAZY</div>
-        <div class="sum-line"><span>Dystans całkowity:</span> <b id="total-dist">0 km</b></div>
-        <div class="sum-line"><span>Szacowany czas:</span> <b id="total-time">0h 0m</b></div>
-        <div class="sum-line"><span>Koszt dojazdu (min. 25€):</span> <b id="total-fuel">0,00 €</b></div>
-        <div class="sum-line"><span>Inspekcje (85€/szt):</span> <b id="total-insp">0,00 €</b></div>
+        <div class="sum-line"><span>Łączny dystans:</span> <b id="total-dist">0 km</b></div>
+        <div class="sum-line"><span>Czas jazdy:</span> <b id="total-time">0h 0m</b></div>
+        <div class="sum-line"><span>Koszt dojazdu (0,49 €/km):</span> <b id="total-fuel">0,00 €</b></div>
+        <div id="min-msg" class="min-info">⚠️ Zastosowano stawkę minimalną 25,00 €</div>
+        <div class="sum-line"><span>Inspekcje (85 €/szt):</span> <b id="total-insp">0,00 €</b></div>
         <div class="sum-total"><span>DO ZAPŁATY:</span> <span id="total-all">0,00 €</span></div>
     </div>
 
@@ -66,132 +74,185 @@
 const HOME = { lat: 51.6517, lng: 9.8294 };
 const PRICE_KM = 0.49;
 const PRICE_INSP = 85.00;
+const MIN_DRIVE_COST = 25.00;
 
 let map, routeLayer;
 
-// Inicjalizacja mapy
 function initMap() {
-    map = L.map('map').setView([HOME.lat, HOME.lng], 8);
+    if (map) return;
+    map = L.map('map').setView([HOME.lat, HOME.lng], 7);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OSM'
     }).addTo(map);
-    L.marker([HOME.lat, HOME.lng]).addTo(map).bindPopup("Twoja Baza (Hardegsen)");
+    L.marker([HOME.lat, HOME.lng]).addTo(map).bindPopup("Baza: Hardegsen");
 }
 
 function addNewPoint() {
     const id = Date.now();
     const html = `
         <div class="point-row" id="row-${id}">
-            <button class="remove-btn" onclick="removePoint(${id})">×</button>
-            <label>Lokalizacja oględzin:</label>
-            <div class="input-row">
-                <input type="number" class="input-zip" id="zip-${id}" placeholder="PLZ">
-                <input type="text" class="input-city" id="city-${id}" placeholder="Miasto">
+            <button class="remove-btn" onclick="removePoint(${id})">Usuń ×</button>
+            <label>Miejsce oględzin (Niemcy):</label>
+            <input type="text" placeholder="Szukaj miasta / kodu..." oninput="handleSearch(event, ${id})" autocomplete="off">
+            <div class="suggestions" id="sugg-${id}"></div>
+            <input type="hidden" id="lat-${id}">
+            <input type="hidden" id="lng-${id}">
+            <div class="row-stats" id="stats-${id}">
+                <div class="stat-badge">Dystans: --</div>
+                <div class="stat-badge">Czas: --</div>
             </div>
-            <button class="btn-check" id="btn-${id}" onclick="verifyAndCalc(${id})">Zatwierdź i pokaż trasę</button>
-            <input type="hidden" id="lat-${id}"><input type="hidden" id="lng-${id}">
-            <div id="stats-${id}" style="font-size:11px; margin-top:5px; color:#2563eb; font-weight:bold; display:none;">Punkt aktywny</div>
         </div>
     `;
     document.getElementById('points-list').insertAdjacentHTML('beforeend', html);
 }
 
 function removePoint(id) {
-    document.getElementById(`row-${id}`).remove();
-    calculateTotal();
+    const row = document.getElementById(`row-${id}`);
+    if(row) row.remove();
+    calculate();
 }
 
-async function verifyAndCalc(id) {
-    const zip = document.getElementById(`zip-${id}`).value;
-    const city = document.getElementById(`city-${id}`).value;
-    const btn = document.getElementById(`btn-${id}`);
-    
-    if(!zip || !city) return;
-    btn.innerHTML = '<span class="loader"></span> Szukam...';
-    
+async function handleSearch(e, id) {
+    const query = e.target.value;
+    const suggBox = document.getElementById(`sugg-${id}`);
+    if(query.length < 3) { suggBox.style.display = 'none'; return; }
+
     try {
-        const res = await fetch(`https://photon.komoot.io/api/?q=${zip}+${city}&limit=1&countrycode=de`);
+        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=10&lang=de`;
+        const res = await fetch(url);
         const data = await res.json();
-        
-        if(data.features && data.features.length > 0) {
-            const coord = data.features[0].geometry.coordinates;
-            document.getElementById(`lat-${id}`).value = coord[1];
-            document.getElementById(`lng-${id}`).value = coord[0];
-            
-            btn.innerText = "✓ Punkt dodany";
-            btn.classList.add('verified');
-            document.getElementById(`row-${id}`).classList.add('ready');
-            document.getElementById(`stats-${id}`).style.display = 'block';
-            
-            calculateTotal();
-        } else {
-            alert("Nie znaleziono miejsca. Sprawdź dane.");
-            btn.innerText = "Zatwierdź";
-        }
-    } catch(e) { btn.innerText = "Zatwierdź"; }
+        if (!data || !data.features) return;
+
+        suggBox.innerHTML = '';
+        const deResults = data.features.filter(f => f.properties.countrycode === 'DE').slice(0, 6);
+        if (deResults.length === 0) { suggBox.style.display = 'none'; return; }
+
+        suggBox.style.display = 'block';
+        deResults.forEach(f => {
+            const d = document.createElement('div');
+            d.className = 'suggestion-item';
+            const p = f.properties;
+            const label = `${p.postcode || ''} ${p.city || p.town || ''} ${p.street || ''} ${p.name || ''}`.replace(/\s+/g, ' ').trim();
+            d.innerText = label;
+            d.onclick = () => {
+                e.target.value = label;
+                document.getElementById(`lat-${id}`).value = f.geometry.coordinates[1];
+                document.getElementById(`lng-${id}`).value = f.geometry.coordinates[0];
+                suggBox.style.display = 'none';
+                calculate();
+            };
+            suggBox.appendChild(d);
+        });
+    } catch(err) { console.error("Search error:", err); }
 }
 
-async function calculateTotal() {
-    const rows = Array.from(document.querySelectorAll('.point-row.ready'));
-    let coords = [[HOME.lng, HOME.lat]];
+async function calculate() {
+    const rows = Array.from(document.querySelectorAll('.point-row'));
+    const app = document.getElementById('app');
+    const spinner = document.getElementById('main-spinner');
     
+    let activePoints = [];
     rows.forEach(row => {
         const id = row.id.split('-')[1];
-        coords.push([
-            parseFloat(document.getElementById(`lng-${id}`).value),
-            parseFloat(document.getElementById(`lat-${id}`).value)
-        ]);
+        const lat = document.getElementById(`lat-${id}`).value;
+        const lng = document.getElementById(`lng-${id}`).value;
+        if (lat && lng) activePoints.push({id, lat, lng});
     });
 
-    if(rows.length === 0) {
-        if(routeLayer) map.removeLayer(routeLayer);
+    if (activePoints.length === 0) { 
+        if(routeLayer && map) map.removeLayer(routeLayer);
         document.getElementById('map').style.display = 'none';
-        document.getElementById('route-label').style.display = 'none';
-        resetSummary();
-        return;
+        updateSummary(0, 0, 0); 
+        return; 
     }
-    
-    // ZAMKNIĘCIE PĘTLI
-    coords.push([HOME.lng, HOME.lat]);
-    const coordsStr = coords.map(c => c.join(',')).join(';');
 
-    try {
-        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`);
-        const data = await res.json();
-        
-        if(data.routes && data.routes[0]) {
-            const r = data.routes[0];
-            const dist = r.distance / 1000;
-            const fuel = Math.max(25, dist * PRICE_KM);
-            const insp = rows.length * PRICE_INSP;
+    app.classList.add('loading');
+    spinner.style.display = 'block';
 
-            // UI Update
-            document.getElementById('total-dist').innerText = dist.toFixed(1) + ' km';
-            document.getElementById('total-time').innerText = Math.floor(r.duration/3600) + 'h ' + Math.floor((r.duration%3600)/60) + 'm';
-            document.getElementById('total-fuel').innerText = fuel.toFixed(2) + ' €';
-            document.getElementById('total-insp').innerText = insp.toFixed(2) + ' €';
-            document.getElementById('total-all').innerText = (fuel + insp).toFixed(2) + ' €';
-            document.getElementById('route-label').style.display = 'block';
+    let coords = [`${HOME.lng},${HOME.lat}`];
+    activePoints.forEach(p => coords.push(`${p.lng},${p.lat}`));
+    coords.push(`${HOME.lng},${HOME.lat}`);
 
-            // Mapa Update
-            document.getElementById('map').style.display = 'block';
-            if(!map) initMap();
-            if(routeLayer) map.removeLayer(routeLayer);
+    const servers = [
+        `https://router.project-osrm.org/route/v1/driving/`,
+        `https://osrm.t-target.pl/route/v1/driving/`
+    ];
 
-            routeLayer = L.geoJSON(r.geometry, {
-                style: { color: '#2563eb', weight: 5, opacity: 0.7 }
-            }).addTo(map);
+    let success = false;
+    for (let server of servers) {
+        try {
+            const res = await fetch(`${server}${coords.join(';')}?overview=full&geometries=geojson`);
+            if (!res.ok) continue;
+            const data = await res.json();
             
-            map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
-        }
-    } catch(e) { console.error(e); }
+            if (data.routes && data.routes[0]) {
+                const route = data.routes[0];
+                const legs = route.legs;
+                let totalDist = route.distance / 1000;
+                let totalSec = route.duration;
+
+                activePoints.forEach((p, index) => {
+                    let d = legs[index].distance / 1000;
+                    let s = legs[index].duration;
+                    const isLast = (index === activePoints.length - 1);
+                    
+                    document.getElementById(`row-${p.id}`).classList.toggle('is-last', isLast);
+                    
+                    if (isLast) { 
+                        d += legs[legs.length - 1].distance / 1000; 
+                        s += legs[legs.length - 1].duration; 
+                    }
+                    
+                    document.getElementById(`stats-${p.id}`).innerHTML = `
+                        <div class="stat-badge">Dystans: ${d.toFixed(1)} km</div>
+                        <div class="stat-badge">Czas: ${formatTime(s)}</div>
+                        ${isLast ? '<div class="stat-badge badge-return">Zawiera powrót</div>' : ''}
+                    `;
+                });
+
+                updateSummary(totalDist, totalSec, activePoints.length);
+                updateMap(route);
+                success = true;
+                break; 
+            }
+        } catch (e) { console.warn(`Server ${server} failed, trying next...`); }
+    }
+
+    if (!success) alert("Błąd: Serwery map nie odpowiadają.");
+    
+    app.classList.remove('loading');
+    spinner.style.display = 'none';
 }
 
-function resetSummary() {
-    document.getElementById('total-dist').innerText = '0 km';
-    document.getElementById('total-fuel').innerText = '0,00 €';
-    document.getElementById('total-insp').innerText = '0,00 €';
-    document.getElementById('total-all').innerText = '0,00 €';
+function updateMap(routeData) {
+    document.getElementById('map').style.display = 'block';
+    initMap();
+    if (routeLayer) map.removeLayer(routeLayer);
+    
+    routeLayer = L.geoJSON(routeData.geometry, {
+        style: { color: '#2563eb', weight: 5, opacity: 0.7 }
+    }).addTo(map);
+    
+    map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+}
+
+function formatTime(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return h > 0 ? `${h}h ${m}m` : `${m} min`;
+}
+
+function updateSummary(dist, sec, count) {
+    document.getElementById('total-dist').innerText = dist.toFixed(1) + ' km';
+    document.getElementById('total-time').innerText = formatTime(sec);
+    let fuelCost = dist * PRICE_KM;
+    const minMsg = document.getElementById('min-msg');
+    if (dist > 0 && fuelCost < MIN_DRIVE_COST) { fuelCost = MIN_DRIVE_COST; minMsg.style.display = 'block'; }
+    else { minMsg.style.display = 'none'; }
+    const inspCost = count * PRICE_INSP;
+    document.getElementById('total-fuel').innerText = fuelCost.toFixed(2) + ' €';
+    document.getElementById('total-insp').innerText = inspCost.toFixed(2) + ' €';
+    document.getElementById('total-all').innerText = (fuelCost + inspCost).toFixed(2) + ' €';
 }
 
 addNewPoint();
