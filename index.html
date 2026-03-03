@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://router.project-osrm.org">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
-    <title>Kalkulator oględzin + Mapa</title>
+    <title>Kalkulator Oględzin + Mapa</title>
     <style>
         :root { --primary: #2563eb; --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
@@ -81,9 +81,7 @@ let map, routeLayer;
 function initMap() {
     if (map) return;
     map = L.map('map').setView([HOME.lat, HOME.lng], 7);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OSM'
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(map);
     L.marker([HOME.lat, HOME.lng]).addTo(map).bindPopup("Baza: Hardegsen");
 }
 
@@ -116,17 +114,14 @@ async function handleSearch(e, id) {
     const query = e.target.value;
     const suggBox = document.getElementById(`sugg-${id}`);
     if(query.length < 3) { suggBox.style.display = 'none'; return; }
-
     try {
         const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=10&lang=de`;
         const res = await fetch(url);
         const data = await res.json();
         if (!data || !data.features) return;
-
         suggBox.innerHTML = '';
         const deResults = data.features.filter(f => f.properties.countrycode === 'DE').slice(0, 6);
         if (deResults.length === 0) { suggBox.style.display = 'none'; return; }
-
         suggBox.style.display = 'block';
         deResults.forEach(f => {
             const d = document.createElement('div');
@@ -143,14 +138,13 @@ async function handleSearch(e, id) {
             };
             suggBox.appendChild(d);
         });
-    } catch(err) { console.error("Search error:", err); }
+    } catch(err) { console.error(err); }
 }
 
 async function calculate() {
     const rows = Array.from(document.querySelectorAll('.point-row'));
     const app = document.getElementById('app');
     const spinner = document.getElementById('main-spinner');
-    
     let activePoints = [];
     rows.forEach(row => {
         const id = row.id.split('-')[1];
@@ -168,58 +162,41 @@ async function calculate() {
 
     app.classList.add('loading');
     spinner.style.display = 'block';
-
     let coords = [`${HOME.lng},${HOME.lat}`];
     activePoints.forEach(p => coords.push(`${p.lng},${p.lat}`));
     coords.push(`${HOME.lng},${HOME.lat}`);
 
-    const servers = [
-        `https://router.project-osrm.org/route/v1/driving/`,
-        `https://osrm.t-target.pl/route/v1/driving/`
-    ];
-
+    const servers = [`https://router.project-osrm.org/route/v1/driving/`, `https://osrm.t-target.pl/route/v1/driving/` ];
     let success = false;
     for (let server of servers) {
         try {
-            const res = await fetch(`${server}${coords.join(';')}?overview=full&geometries=geojson`);
+            const res = await fetch(`${server}${coords.join(';')}?overview=full&geometries=geojson&steps=false`);
             if (!res.ok) continue;
             const data = await res.json();
-            
             if (data.routes && data.routes[0]) {
                 const route = data.routes[0];
                 const legs = route.legs;
-                let totalDist = route.distance / 1000;
-                let totalSec = route.duration;
-
                 activePoints.forEach((p, index) => {
                     let d = legs[index].distance / 1000;
                     let s = legs[index].duration;
                     const isLast = (index === activePoints.length - 1);
-                    
                     document.getElementById(`row-${p.id}`).classList.toggle('is-last', isLast);
-                    
                     if (isLast) { 
                         d += legs[legs.length - 1].distance / 1000; 
                         s += legs[legs.length - 1].duration; 
                     }
-                    
                     document.getElementById(`stats-${p.id}`).innerHTML = `
                         <div class="stat-badge">Dystans: ${d.toFixed(1)} km</div>
                         <div class="stat-badge">Czas: ${formatTime(s)}</div>
                         ${isLast ? '<div class="stat-badge badge-return">Zawiera powrót</div>' : ''}
                     `;
                 });
-
-                updateSummary(totalDist, totalSec, activePoints.length);
+                updateSummary(route.distance / 1000, route.duration, activePoints.length);
                 updateMap(route);
-                success = true;
-                break; 
+                success = true; break; 
             }
-        } catch (e) { console.warn(`Server ${server} failed, trying next...`); }
+        } catch (e) { console.warn(e); }
     }
-
-    if (!success) alert("Błąd: Serwery map nie odpowiadają.");
-    
     app.classList.remove('loading');
     spinner.style.display = 'none';
 }
@@ -228,11 +205,7 @@ function updateMap(routeData) {
     document.getElementById('map').style.display = 'block';
     initMap();
     if (routeLayer) map.removeLayer(routeLayer);
-    
-    routeLayer = L.geoJSON(routeData.geometry, {
-        style: { color: '#2563eb', weight: 5, opacity: 0.7 }
-    }).addTo(map);
-    
+    routeLayer = L.geoJSON(routeData.geometry, { style: { color: '#2563eb', weight: 5, opacity: 0.7 } }).addTo(map);
     map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
 }
 
@@ -249,14 +222,11 @@ function updateSummary(dist, sec, count) {
     const minMsg = document.getElementById('min-msg');
     if (dist > 0 && fuelCost < MIN_DRIVE_COST) { fuelCost = MIN_DRIVE_COST; minMsg.style.display = 'block'; }
     else { minMsg.style.display = 'none'; }
-    const inspCost = count * PRICE_INSP;
     document.getElementById('total-fuel').innerText = fuelCost.toFixed(2) + ' €';
-    document.getElementById('total-insp').innerText = inspCost.toFixed(2) + ' €';
-    document.getElementById('total-all').innerText = (fuelCost + inspCost).toFixed(2) + ' €';
+    document.getElementById('total-insp').innerText = (count * PRICE_INSP).toFixed(2) + ' €';
+    document.getElementById('total-all').innerText = (fuelCost + (count * PRICE_INSP)).toFixed(2) + ' €';
 }
-
 addNewPoint();
 </script>
 </body>
 </html>
-
