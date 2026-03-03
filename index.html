@@ -3,64 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-    
-    <link rel="preconnect" href="https://photon.komoot.io">
-    <link rel="preconnect" href="https://router.project-osrm.org">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
     <title>Kalkulator Oględzin + Mapa </title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root { --primary: #2563eb; --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
-        .app-card { width: 100%; max-width: 600px; margin: 0 auto; background: var(--card); border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 20px; box-sizing: border-box; }
-        .header { background: var(--primary); color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center; position: relative; }
-        
-        .loader-spinner { display: none; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite; position: absolute; right: 15px; top: 22px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .point-row { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-bottom: 12px; position: relative; border-left: 4px solid #cbd5e1; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; }
+        .app-card { width: 100%; max-width: 600px; margin: 0 auto; background: var(--card); border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 15px; box-sizing: border-box; }
+        .header { background: var(--primary); color: white; padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: center; }
+        .point-row { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 10px; position: relative; border-left: 4px solid #cbd5e1; }
         .point-row.is-last { border-left-color: #10b981; background: #f0fdf4; }
-        
-        label { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 5px; }
         input { width: 100%; padding: 12px; border: 2px solid #f1f5f9; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none; }
-        
-        .row-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-        .stat-badge { background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569; }
-        .badge-return { background: #10b981; color: white; border-color: #059669; }
-
-        .suggestions { position: absolute; left: 15px; right: 15px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); z-index: 1000; max-height: 200px; overflow-y: auto; display: none; }
-        .suggestion-item { padding: 14px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 14px; line-height: 1.4; }
-
-        .btn-add { width: 100%; padding: 16px; background: #e2e8f0; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin: 10px 0; color: #475569; font-size: 14px; }
-        
-        .summary-box { background: #1e293b; color: white; border-radius: 12px; padding: 20px; margin-top: 20px; }
-        .sum-line { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; opacity: 0.8; }
-        .sum-total { display: flex; justify-content: space-between; margin-top: 15px; padding-top: 15px; border-top: 1px solid #334155; font-size: 1.5rem; font-weight: bold; color: #34d399; }
-        .remove-btn { position: absolute; top: 10px; right: 10px; color: #ef4444; border: none; background: none; font-size: 12px; cursor: pointer; padding: 5px; }
-        
-        #map { height: 250px; width: 100%; border-radius: 12px; margin-top: 20px; border: 1px solid #e2e8f0; display: none; }
-        .loading { opacity: 0.6; pointer-events: none; }
+        .stat-badge { background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569; margin-top: 8px; display: inline-block; }
+        .badge-return { background: #10b981; color: white; margin-left: 5px; }
+        .suggestions { position: absolute; left: 15px; right: 15px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; z-index: 1000; max-height: 200px; overflow-y: auto; display: none; }
+        .suggestion-item { padding: 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 14px; }
+        .summary-box { background: #1e293b; color: white; border-radius: 12px; padding: 15px; margin-top: 15px; }
+        .sum-total { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155; font-size: 1.4rem; font-weight: bold; color: #34d399; }
+        #map { height: 250px; width: 100%; border-radius: 12px; margin-top: 15px; border: 1px solid #e2e8f0; display: none; }
+        .remove-btn { position: absolute; top: 10px; right: 10px; color: #ef4444; border: none; background: none; cursor: pointer; font-size: 18px; }
+        .loading { opacity: 0.5; pointer-events: none; }
     </style>
 </head>
 <body>
 
-<div class="app-card" id="app">
+<div class="app-card" id="app-container">
     <div class="header">
-        <h2 style="margin:0; font-size: 18px;">Kalkulator (Highway Focus)</h2>
-        <div id="main-spinner" class="loader-spinner"></div>
-        <div style="font-size: 11px; opacity: 0.9; margin-top: 5px;">📍 Hardegsen -> Pętla -> Hardegsen</div>
+        <h2 style="margin:0; font-size: 18px;">Hellboy Kalkulator</h2>
+        <div style="font-size: 11px; opacity: 0.9;">Start/Powrót: Fuchsbreite 39, Hardegsen</div>
     </div>
 
     <div id="points-list"></div>
-    <button class="btn-add" onclick="addNewPoint()">+ DODAJ KOLEJNY PUNKT</button>
+    <button onclick="addNewPoint()" style="width:100%; padding:15px; margin:10px 0; border-radius:12px; border:none; background:#e2e8f0; font-weight:bold; cursor:pointer;">+ DODAJ PUNKT</button>
 
     <div class="summary-box">
-        <div class="sum-line"><span>Łączny dystans:</span> <b id="total-dist">0 km</b></div>
-        <div class="sum-line"><span>Czas jazdy:</span> <b id="total-time">0h 0m</b></div>
-        <div class="sum-line"><span>Koszt dojazdu (0,49 €):</span> <b id="total-fuel">0,00 €</b></div>
-        <div class="sum-line"><span>Inspekcje (85 €):</span> <b id="total-insp">0,00 €</b></div>
-        <div class="sum-total"><span>ŁĄCZNIE:</span> <span id="total-all">0,00 €</span></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;"><span>Dystans całkowity:</span> <b id="total-dist">0 km</b></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;"><span>Szacowany czas:</span> <b id="total-time">0h 0m</b></div>
+        <div class="sum-total"><span>DO ZAPŁATY:</span> <span id="total-all">0,00 €</span></div>
     </div>
 
     <div id="map"></div>
@@ -69,57 +47,46 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const HOME = { lat: 51.6517, lng: 9.8294 };
-const PRICE_KM = 0.49;
-const PRICE_INSP = 85.00;
+const ORS_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjdlODZlZjkwZmRmYjQ2MjRiNmJmOTIyNmYwZTA5MWJiIiwiaCI6Im11cm11cjY0In0=';
 
 let map, routeLayer;
-
-function initMap() {
-    if (map) return;
-    map = L.map('map').setView([HOME.lat, HOME.lng], 7);
-    L.tileLayer('https://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
-}
 
 function addNewPoint() {
     const id = Date.now();
     const html = `
         <div class="point-row" id="row-${id}">
-            <button class="remove-btn" onclick="removePoint(${id})">Usuń ×</button>
-            <label>Miejsce oględzin:</label>
-            <input type="text" placeholder="Miasto / Kod pocztowy..." oninput="handleSearch(event, ${id})" autocomplete="off">
+            <button class="remove-btn" onclick="removePoint(${id})">×</button>
+            <label style="font-size:10px; color:#64748b; font-weight:bold;">MIEJSCE OGLĘDZIN:</label>
+            <input type="text" placeholder="Kod pocztowy / Miasto..." oninput="handleSearch(event, ${id})" autocomplete="off">
             <div class="suggestions" id="sugg-${id}"></div>
             <input type="hidden" id="lat-${id}"><input type="hidden" id="lng-${id}">
-            <div class="row-stats" id="stats-${id}">
-                <div class="stat-badge">Czekam na adres...</div>
-            </div>
+            <div id="stats-${id}"></div>
         </div>`;
     document.getElementById('points-list').insertAdjacentHTML('beforeend', html);
 }
 
-function removePoint(id) {
-    document.getElementById(`row-${id}`).remove();
-    calculate();
+function removePoint(id) { 
+    const el = document.getElementById(`row-${id}`);
+    if(el) el.remove(); 
+    calculate(); 
 }
 
 async function handleSearch(e, id) {
     const query = e.target.value;
     const suggBox = document.getElementById(`sugg-${id}`);
     if(query.length < 3) { suggBox.style.display = 'none'; return; }
+    
     try {
-        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=6&lang=de`);
+        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=de&countrycode=de`);
         const data = await res.json();
         suggBox.innerHTML = '';
-        const deResults = data.features.filter(f => f.properties.countrycode === 'DE');
-        if (deResults.length === 0) { suggBox.style.display = 'none'; return; }
         suggBox.style.display = 'block';
-        deResults.forEach(f => {
+        data.features.forEach(f => {
             const d = document.createElement('div');
             d.className = 'suggestion-item';
-            const p = f.properties;
-            const label = `${p.postcode || ''} ${p.city || p.town || ''} ${p.name || ''}`.trim();
-            d.innerText = label;
+            d.innerText = `${f.properties.postcode || ''} ${f.properties.city || ''} ${f.properties.name || ''}`;
             d.onclick = () => {
-                e.target.value = label;
+                e.target.value = d.innerText;
                 document.getElementById(`lat-${id}`).value = f.geometry.coordinates[1];
                 document.getElementById(`lng-${id}`).value = f.geometry.coordinates[0];
                 suggBox.style.display = 'none';
@@ -132,78 +99,77 @@ async function handleSearch(e, id) {
 
 async function calculate() {
     const rows = Array.from(document.querySelectorAll('.point-row'));
-    const app = document.getElementById('app');
-    const spinner = document.getElementById('main-spinner');
+    const app = document.getElementById('app-container');
     let activePoints = [];
-    rows.forEach(row => {
+    
+    rows.forEach((row, index) => {
         const id = row.id.split('-')[1];
         const lat = document.getElementById(`lat-${id}`).value;
         const lng = document.getElementById(`lng-${id}`).value;
-        if (lat && lng) activePoints.push({id, lat, lng});
+        if (lat && lng) {
+            activePoints.push([parseFloat(lng), parseFloat(lat)]);
+            row.classList.toggle('is-last', false);
+        }
     });
 
-    if (activePoints.length === 0) {
-        if(map && routeLayer) map.removeLayer(routeLayer);
-        return;
-    }
-
+    if (activePoints.length === 0) return;
+    
+    
+    rows[rows.length-1].classList.add('is-last');
+    
     app.classList.add('loading');
-    spinner.style.display = 'block';
-
-    let coords = [`${HOME.lng},${HOME.lat}`];
-    activePoints.forEach(p => coords.push(`${p.lng},${p.lat}`));
-    coords.push(`${HOME.lng},${HOME.lat}`);
+    let allCoords = [[HOME.lng, HOME.lat], ...activePoints, [HOME.lng, HOME.lat]];
 
     try {
-        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coords.join(';')}?overview=full&geometries=geojson&continue_straight=true`;
-        const res = await fetch(osrmUrl);
-        const data = await res.json();
+        const response = await fetch(`https://api.openrouteservice.org/v2/directions/driving-car/geojson`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': ORS_KEY 
+            },
+            body: JSON.stringify({ 
+                coordinates: allCoords,
+                preference: 'fastest',
+                options: { avoid_features: ["unpavedroads"] } 
+            })
+        });
         
-        if (data.routes && data.routes[0]) {
-            const route = data.routes[0];
-            const legs = route.legs;
+        const data = await response.json();
+        
+        if (data.features) {
+            const route = data.features[0];
+            const summary = route.properties.summary;
+            const dist = summary.distance / 1000;
+            const time = summary.duration;
 
-            activePoints.forEach((p, index) => {
-                let d = legs[index].distance / 1000;
-                let s = legs[index].duration;
-                const isLast = (index === activePoints.length - 1);
-                document.getElementById(`row-${p.id}`).classList.toggle('is-last', isLast);
-                
-                if (isLast) {
-                    d += legs[legs.length - 1].distance / 1000;
-                    s += legs[legs.length - 1].duration;
-                }
-                
-                document.getElementById(`stats-${p.id}`).innerHTML = `
-                    <div class="stat-badge">Odcinek: ${d.toFixed(1)} km</div>
-                    <div class="stat-badge">Czas: ${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m</div>
-                    ${isLast ? '<div class="stat-badge badge-return">Zawiera powrót</div>' : ''}
-                `;
-            });
+            document.getElementById('total-dist').innerText = dist.toFixed(1) + ' km';
+            document.getElementById('total-time').innerText = Math.floor(time/3600) + 'h ' + Math.floor((time%3600)/60) + 'm';
+            document.getElementById('total-all').innerText = (Math.max(25, dist * 0.49) + (activePoints.length * 85)).toFixed(2) + ' €';
 
-            const totalDist = route.distance / 1000;
-            const fuelCost = Math.max(25, totalDist * PRICE_KM);
-            const inspCost = activePoints.length * PRICE_INSP;
-
-            document.getElementById('total-dist').innerText = totalDist.toFixed(1) + ' km';
-            document.getElementById('total-time').innerText = Math.floor(route.duration/3600) + 'h ' + Math.floor((route.duration%3600)/60) + 'm';
-            document.getElementById('total-fuel').innerText = fuelCost.toFixed(2) + ' €';
-            document.getElementById('total-insp').innerText = inspCost.toFixed(2) + ' €';
-            document.getElementById('total-all').innerText = (fuelCost + inspCost).toFixed(2) + ' €';
-
-            // Mapa
+            // Mapa i etykieta "Zawiera powrót"
             document.getElementById('map').style.display = 'block';
-            initMap();
+            if(!map) { 
+                map = L.map('map').setView([HOME.lat, HOME.lng], 8); 
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                L.marker([HOME.lat, HOME.lng]).addTo(map).bindPopup("Hardegsen (Start/Meta)");
+            }
             if(routeLayer) map.removeLayer(routeLayer);
-            routeLayer = L.geoJSON(route.geometry, { style: { color: '#2563eb', weight: 5 } }).addTo(map);
-            map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+            routeLayer = L.geoJSON(route, { style: { color: '#2563eb', weight: 6, opacity: 0.8 } }).addTo(map);
+            map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+
+            
+            const lastId = rows[rows.length-1].id.split('-')[1];
+            document.getElementById(`stats-${lastId}`).innerHTML = '<div class="stat-badge badge-return">Z doliczonym powrotem do bazy</div>';
         }
-    } catch(e) { console.error(e); } finally {
+    } catch(e) { 
+        console.error("Błąd kalkulacji:", e); 
+        alert("Błąd połączenia z serwerem map. Sprawdź klucz API.");
+    } finally {
         app.classList.remove('loading');
-        spinner.style.display = 'none';
     }
 }
 
+// Inicjalizacja
 addNewPoint();
 </script>
 </body>
