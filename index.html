@@ -6,9 +6,9 @@
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     
     <link rel="preconnect" href="https://photon.komoot.io">
-    <link rel="preconnect" href="https://router.felyx.cloud">
+    <link rel="preconnect" href="https://router.project-osrm.org">
     
-    <title>Kalkulator Oględzin</title>
+    <title>Kalkulator Oględzin FINAL</title>
     <style>
         :root { --primary: #2563eb; --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
@@ -29,7 +29,6 @@
 
         .suggestions { position: absolute; left: 15px; right: 15px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); z-index: 100; max-height: 200px; overflow-y: auto; display: none; }
         .suggestion-item { padding: 14px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 14px; line-height: 1.4; }
-        .suggestion-item:active { background: #f1f5f9; }
 
         .btn-add { width: 100%; padding: 16px; background: #e2e8f0; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin: 10px 0; color: #475569; font-size: 14px; }
         
@@ -77,7 +76,7 @@ function addNewPoint() {
         <div class="point-row" id="row-${id}">
             <button class="remove-btn" onclick="removePoint(${id})">Usuń ×</button>
             <label>Miejsce oględzin (Niemcy):</label>
-            <input type="text" placeholder="Wyszukaj adres..." oninput="handleSearch(event, ${id})" autocomplete="off">
+            <input type="text" placeholder="Szukaj miasta / kodu..." oninput="handleSearch(event, ${id})" autocomplete="off">
             <div class="suggestions" id="sugg-${id}"></div>
             <input type="hidden" id="lat-${id}">
             <input type="hidden" id="lng-${id}">
@@ -99,50 +98,25 @@ function removePoint(id) {
 async function handleSearch(e, id) {
     const query = e.target.value;
     const suggBox = document.getElementById(`sugg-${id}`);
-    
-    if(query.length < 3) {
-        suggBox.style.display = 'none';
-        return;
-    }
+    if(query.length < 3) { suggBox.style.display = 'none'; return; }
 
     try {
         const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=10&lang=de`;
         const res = await fetch(url);
-        if (!res.ok) return;
-        
         const data = await res.json();
         if (!data || !data.features) return;
 
         suggBox.innerHTML = '';
-        
-        // Filtrujemy tylko wyniki z Niemiec
-        const deResults = data.features.filter(f => 
-            f.properties.countrycode === 'DE' || 
-            f.properties.country === 'Deutschland' || 
-            f.properties.country === 'Germany'
-        ).slice(0, 6);
-
-        if (deResults.length === 0) {
-            suggBox.style.display = 'none';
-            return;
-        }
+        const deResults = data.features.filter(f => f.properties.countrycode === 'DE').slice(0, 6);
+        if (deResults.length === 0) { suggBox.style.display = 'none'; return; }
 
         suggBox.style.display = 'block';
-        
         deResults.forEach(f => {
             const d = document.createElement('div');
             d.className = 'suggestion-item';
             const p = f.properties;
-            
-            const city = p.city || p.town || p.village || '';
-            const street = p.street || '';
-            const housenumber = p.housenumber || '';
-            const postcode = p.postcode || '';
-            const name = (p.name && p.name !== city) ? p.name : '';
-
-            const label = `${postcode} ${city} ${street} ${housenumber} ${name}`.replace(/\s+/g, ' ').trim();
+            const label = `${p.postcode || ''} ${p.city || p.town || ''} ${p.street || ''} ${p.name || ''}`.replace(/\s+/g, ' ').trim();
             d.innerText = label;
-            
             d.onclick = () => {
                 e.target.value = label;
                 document.getElementById(`lat-${id}`).value = f.geometry.coordinates[1];
@@ -152,9 +126,7 @@ async function handleSearch(e, id) {
             };
             suggBox.appendChild(d);
         });
-    } catch(err) { 
-        console.error("Search error:", err);
-    }
+    } catch(err) { console.error("Search error:", err); }
 }
 
 async function calculate() {
@@ -170,56 +142,55 @@ async function calculate() {
         if (lat && lng) activePoints.push({id, lat, lng});
     });
 
-    if (activePoints.length === 0) {
-        updateSummary(0, 0, 0);
-        return;
-    }
+    if (activePoints.length === 0) { updateSummary(0, 0, 0); return; }
 
     app.classList.add('loading');
     spinner.style.display = 'block';
 
-    let coordsArray = [`${HOME.lng},${HOME.lat}`];
-    activePoints.forEach(p => coordsArray.push(`${p.lng},${p.lat}`));
-    coordsArray.push(`${HOME.lng},${HOME.lat}`);
+    let coords = [`${HOME.lng},${HOME.lat}`];
+    activePoints.forEach(p => coords.push(`${p.lng},${p.lat}`));
+    coords.push(`${HOME.lng},${HOME.lat}`);
 
-    try {
-        const osrmUrl = `https://router.felyx.cloud/route/v1/driving/${coordsArray.join(';')}?overview=false&steps=false`;
-        const res = await fetch(osrmUrl, { mode: 'cors' });
-        const data = await res.json();
-        
-        if (data.routes && data.routes[0]) {
-            const route = data.routes[0];
-            const legs = route.legs;
+    const servers = [
+        `https://router.project-osrm.org/route/v1/driving/`,
+        `https://osrm.t-target.pl/route/v1/driving/`
+    ];
+
+    let success = false;
+    for (let server of servers) {
+        try {
+            const res = await fetch(`${server}${coords.join(';')}?overview=false&steps=false`);
+            if (!res.ok) continue;
+            const data = await res.json();
             
-            let totalDist = route.distance / 1000;
-            let totalSec = route.duration;
+            if (data.routes && data.routes[0]) {
+                const route = data.routes[0];
+                const legs = route.legs;
+                let totalDist = route.distance / 1000;
+                let totalSec = route.duration;
 
-            activePoints.forEach((p, index) => {
-                let d = legs[index].distance / 1000;
-                let s = legs[index].duration;
-                
-                const isLast = (index === activePoints.length - 1);
-                document.getElementById(`row-${p.id}`).classList.toggle('is-last', isLast);
-
-                if (isLast) {
-                    d += legs[legs.length - 1].distance / 1000;
-                    s += legs[legs.length - 1].duration;
-                }
-
-                document.getElementById(`stats-${p.id}`).innerHTML = `
-                    <div class="stat-badge">Dystans: ${d.toFixed(1)} km</div>
-                    <div class="stat-badge">Czas: ${formatTime(s)}</div>
-                `;
-            });
-
-            updateSummary(totalDist, totalSec, activePoints.length);
-        }
-    } catch (e) {
-        console.error("OSRM Error:", e);
-    } finally {
-        app.classList.remove('loading');
-        spinner.style.display = 'none';
+                activePoints.forEach((p, index) => {
+                    let d = legs[index].distance / 1000;
+                    let s = legs[index].duration;
+                    const isLast = (index === activePoints.length - 1);
+                    document.getElementById(`row-${p.id}`).classList.toggle('is-last', isLast);
+                    if (isLast) { d += legs[legs.length - 1].distance / 1000; s += legs[legs.length - 1].duration; }
+                    document.getElementById(`stats-${p.id}`).innerHTML = `
+                        <div class="stat-badge">Dystans: ${d.toFixed(1)} km</div>
+                        <div class="stat-badge">Czas: ${formatTime(s)}</div>
+                    `;
+                });
+                updateSummary(totalDist, totalSec, activePoints.length);
+                success = true;
+                break; // Udało się, przerywamy pętlę serwerów
+            }
+        } catch (e) { console.warn(`Server ${server} failed, trying next...`); }
     }
+
+    if (!success) alert("Błąd: Serwery map nie odpowiadają. Spróbuj za chwilę.");
+    
+    app.classList.remove('loading');
+    spinner.style.display = 'none';
 }
 
 function formatTime(seconds) {
@@ -231,17 +202,10 @@ function formatTime(seconds) {
 function updateSummary(dist, sec, count) {
     document.getElementById('total-dist').innerText = dist.toFixed(1) + ' km';
     document.getElementById('total-time').innerText = formatTime(sec);
-    
     let fuelCost = dist * PRICE_KM;
     const minMsg = document.getElementById('min-msg');
-    
-    if (dist > 0 && fuelCost < MIN_DRIVE_COST) {
-        fuelCost = MIN_DRIVE_COST;
-        minMsg.style.display = 'block';
-    } else {
-        minMsg.style.display = 'none';
-    }
-
+    if (dist > 0 && fuelCost < MIN_DRIVE_COST) { fuelCost = MIN_DRIVE_COST; minMsg.style.display = 'block'; }
+    else { minMsg.style.display = 'none'; }
     const inspCost = count * PRICE_INSP;
     document.getElementById('total-fuel').innerText = fuelCost.toFixed(2) + ' €';
     document.getElementById('total-insp').innerText = inspCost.toFixed(2) + ' €';
@@ -252,4 +216,3 @@ addNewPoint();
 </script>
 </body>
 </html>
-
