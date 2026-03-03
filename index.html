@@ -3,40 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kalkulator Inspektora v3</title>
+    <title>Kalkulator Oględzin</title>
     <style>
         :root { --primary: #2563eb; --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
-        .app-card { width: 100%; max-width: 600px; margin: 0 auto; background: var(--card); border-radius: 16px; shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 20px; box-sizing: border-box; }
-        .header { background: var(--primary); color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center; }
+        .app-card { width: 100%; max-width: 600px; margin: 0 auto; background: var(--card); border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 20px; box-sizing: border-box; }
+        .header { background: var(--primary); color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center; position: relative; }
         
+        /* SPINNER CSS */
+        .loader-spinner { display: none; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; position: absolute; right: 15px; top: 22px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         .point-row { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-bottom: 12px; position: relative; border-left: 4px solid #cbd5e1; }
-        .point-row.is-last { border-left-color: #10b981; background: #f0fdf4; }
+        .point-row.is-last { border-left-color: #10b981; }
         
         label { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 5px; }
         input { width: 100%; padding: 12px; border: 2px solid #f1f5f9; border-radius: 8px; font-size: 15px; box-sizing: border-box; outline: none; }
         
         .row-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-        .stat-badge { background: #fff; border: 1px solid #e2e8f0; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569; }
-        .stat-badge.highlight { color: var(--primary); border-color: #bfdbfe; background: #eff6ff; }
-
-        .suggestions { position: absolute; left: 15px; right: 15px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); z-index: 100; max-height: 180px; overflow-y: auto; display: none; }
-        .suggestion-item { padding: 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 14px; }
-
-        .btn-add { width: 100%; padding: 15px; background: #e2e8f0; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin: 10px 0; color: #475569; font-size: 14px; }
+        .stat-badge { background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #475569; }
         
-        .summary-box { background: #1e293b; color: white; border-radius: 12px; padding: 20px; margin-top: 20px; }
+        .suggestions { position: absolute; left: 15px; right: 15px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); z-index: 100; max-height: 180px; overflow-y: auto; display: none; }
+        .suggestion-item { padding: 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+
+        .btn-add { width: 100%; padding: 15px; background: #e2e8f0; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin: 10px 0; color: #475569; }
+        
+        .summary-box { background: #1e293b; color: white; border-radius: 12px; padding: 20px; margin-top: 20px; transition: opacity 0.3s; }
         .sum-line { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; opacity: 0.8; }
         .sum-total { display: flex; justify-content: space-between; margin-top: 15px; padding-top: 15px; border-top: 1px solid #334155; font-size: 1.4rem; font-weight: bold; color: #34d399; }
+        .min-info { font-size: 10px; color: #fbbf24; margin-top: -5px; margin-bottom: 10px; display: none; }
         .remove-btn { position: absolute; top: 10px; right: 10px; color: #ef4444; border: none; background: none; font-size: 11px; cursor: pointer; }
+        
+        .loading .summary-box { opacity: 0.5; pointer-events: none; }
     </style>
 </head>
-<body>
+<body id="body">
 
 <div class="app-card">
     <div class="header">
         <h2 style="margin:0; font-size: 18px;">Kalkulator Trasy & Czasu</h2>
-        <div style="font-size: 12px; opacity: 0.9; margin-top: 5px;">Start: Fuchsbreite 39, 37181 Hardegsen</div>
+        <div id="main-spinner" class="loader-spinner"></div>
+        <div style="font-size: 12px; opacity: 0.9; margin-top: 5px;">Baza: Fuchsbreite 39, Hardegsen</div>
     </div>
 
     <div id="points-list"></div>
@@ -45,10 +52,11 @@
 
     <div class="summary-box">
         <div class="sum-line"><span>Łączny dystans:</span> <b id="total-dist">0 km</b></div>
-        <div class="sum-line"><span>Szacowany czas jazdy:</span> <b id="total-time">0h 0m</b></div>
-        <div class="sum-line"><span>Przejazd (0,49 €/km):</span> <b id="total-fuel">0,00 €</b></div>
+        <div class="sum-line"><span>Czas jazdy:</span> <b id="total-time">0h 0m</b></div>
+        <div class="sum-line"><span>Paliwo (0,49 €/km):</span> <b id="total-fuel">0,00 €</b></div>
+        <div id="min-msg" class="min-info">⚠️ Zastosowano stawkę minimalną 25,00 €</div>
         <div class="sum-line"><span>Inspekcje (85 €/szt):</span> <b id="total-insp">0,00 €</b></div>
-        <div class="sum-total"><span>ŁĄCZNIE:</span> <span id="total-all">0,00 €</span></div>
+        <div class="sum-total"><span>DO ZAPŁATY:</span> <span id="total-all">0,00 €</span></div>
     </div>
 </div>
 
@@ -56,6 +64,7 @@
 const HOME = { lat: 51.6517, lng: 9.8294 };
 const PRICE_KM = 0.49;
 const PRICE_INSP = 85.00;
+const MIN_FUEL_COST = 25.00;
 
 function addNewPoint() {
     const id = Date.now();
@@ -108,48 +117,57 @@ async function handleSearch(e, id) {
 
 async function calculate() {
     const rows = Array.from(document.querySelectorAll('.point-row'));
+    const body = document.getElementById('body');
+    const spinner = document.getElementById('main-spinner');
+    
     let totalDist = 0;
     let totalSec = 0;
     let inspections = 0;
 
-    for (let i = 0; i < rows.length; i++) {
-        const id = rows[i].id.split('-')[1];
-        const lat = document.getElementById(`lat-${id}`).value;
-        const lng = document.getElementById(`lng-${id}`).value;
+    body.classList.add('loading');
+    spinner.style.display = 'block';
 
-        if (!lat || !lng) continue;
-        inspections++;
+    try {
+        for (let i = 0; i < rows.length; i++) {
+            const id = rows[i].id.split('-')[1];
+            const lat = document.getElementById(`lat-${id}`).value;
+            const lng = document.getElementById(`lng-${id}`).value;
 
-        const isLast = (i === rows.length - 1);
-        rows[i].classList.toggle('is-last', isLast);
+            if (!lat || !lng) continue;
+            inspections++;
 
-        // Skąd jedziemy?
-        let start = (i === 0) ? HOME : { 
-            lat: document.getElementById(`lat-${rows[i-1].id.split('-')[1]}`).value, 
-            lng: document.getElementById(`lng-${rows[i-1].id.split('-')[1]}`).value 
-        };
+            const isLast = (i === rows.length - 1);
+            rows[i].classList.toggle('is-last', isLast);
 
-        // Czy doliczamy powrót?
-        let coords = `${start.lng},${start.lat};${lng},${lat}`;
-        if(isLast) coords += `;${HOME.lng},${HOME.lat}`;
+            let start = (i === 0) ? HOME : { 
+                lat: document.getElementById(`lat-${rows[i-1].id.split('-')[1]}`).value, 
+                lng: document.getElementById(`lng-${rows[i-1].id.split('-')[1]}`).value 
+            };
 
-        const routeData = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=false`).then(r => r.json());
-        
-        if(routeData.routes && routeData.routes[0]) {
-            const d = routeData.routes[0].distance / 1000;
-            const s = routeData.routes[0].duration;
-            totalDist += d;
-            totalSec += s;
+            let coords = `${start.lng},${start.lat};${lng},${lat}`;
+            if(isLast) coords += `;${HOME.lng},${HOME.lat}`;
 
-            // Update wiersza
-            document.getElementById(`stats-${id}`).innerHTML = `
-                <div class="stat-badge highlight">Odcinek: ${d.toFixed(1)} km</div>
-                <div class="stat-badge highlight">Czas jazdy: ${formatTime(s)}</div>
-                ${isLast ? '<div class="stat-badge" style="background:#dcfce7">Zawiera powrót</div>' : ''}
-            `;
+            const routeData = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=false`).then(r => r.json());
+            
+            if(routeData.routes && routeData.routes[0]) {
+                const d = routeData.routes[0].distance / 1000;
+                const s = routeData.routes[0].duration;
+                totalDist += d;
+                totalSec += s;
+
+                document.getElementById(`stats-${id}`).innerHTML = `
+                    <div class="stat-badge">Odcinek: ${d.toFixed(1)} km</div>
+                    <div class="stat-badge">Czas: ${formatTime(s)}</div>
+                `;
+            }
         }
+        updateSummary(totalDist, totalSec, inspections);
+    } catch (e) {
+        console.error(e);
+    } finally {
+        body.classList.remove('loading');
+        spinner.style.display = 'none';
     }
-    updateSummary(totalDist, totalSec, inspections);
 }
 
 function formatTime(seconds) {
@@ -161,11 +179,21 @@ function formatTime(seconds) {
 function updateSummary(dist, sec, count) {
     document.getElementById('total-dist').innerText = dist.toFixed(1) + ' km';
     document.getElementById('total-time').innerText = formatTime(sec);
-    const fuel = dist * PRICE_KM;
-    const insp = count * PRICE_INSP;
-    document.getElementById('total-fuel').innerText = fuel.toFixed(2) + ' €';
-    document.getElementById('total-insp').innerText = insp.toFixed(2) + ' €';
-    document.getElementById('total-all').innerText = (fuel + insp).toFixed(2) + ' €';
+    
+    let fuelCost = dist * PRICE_KM;
+    const minMsg = document.getElementById('min-msg');
+    
+    if (dist > 0 && fuelCost < MIN_FUEL_COST) {
+        fuelCost = MIN_FUEL_COST;
+        minMsg.style.display = 'block';
+    } else {
+        minMsg.style.display = 'none';
+    }
+
+    const inspCost = count * PRICE_INSP;
+    document.getElementById('total-fuel').innerText = fuelCost.toFixed(2) + ' €';
+    document.getElementById('total-insp').innerText = inspCost.toFixed(2) + ' €';
+    document.getElementById('total-all').innerText = (fuelCost + inspCost).toFixed(2) + ' €';
 }
 
 addNewPoint();
