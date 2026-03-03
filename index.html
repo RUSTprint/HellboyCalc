@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-    <title>Hellboy Kalkulator v14</title>
+    <title>Hellboy Kalkulator</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root { --primary: #2563eb; --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; }
@@ -18,8 +18,10 @@
         .badge-return { background: #10b981; color: white; margin-left: 5px; }
         .suggestions { position: absolute; left: 15px; right: 15px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; z-index: 1000; max-height: 200px; overflow-y: auto; display: none; }
         .suggestion-item { padding: 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-size: 14px; }
-        .summary-box { background: #1e293b; color: white; border-radius: 12px; padding: 15px; margin-top: 15px; }
-        .sum-total { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155; font-size: 1.4rem; font-weight: bold; color: #34d399; }
+        .summary-box { background: #1e293b; color: white; border-radius: 12px; padding: 20px; margin-top: 15px; }
+        .sum-line { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; opacity: 0.8; }
+        .sum-total { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid #334155; font-size: 1.5rem; font-weight: bold; color: #34d399; }
+        .min-info { font-size: 11px; color: #fbbf24; margin-bottom: 10px; font-weight: bold; display: none; }
         #map { height: 280px; width: 100%; border-radius: 12px; margin-top: 15px; border: 1px solid #e2e8f0; display: none; }
         .remove-btn { position: absolute; top: 10px; right: 10px; color: #ef4444; border: none; background: none; cursor: pointer; font-size: 18px; }
         .loading-overlay { display: none; text-align: center; padding: 10px; color: var(--primary); font-weight: bold; font-size: 12px; }
@@ -34,13 +36,16 @@
     </div>
 
     <div id="points-list"></div>
-    <button onclick="addNewPoint()" style="width:100%; padding:15px; margin:10px 0; border-radius:12px; border:none; background:#e2e8f0; font-weight:bold; cursor:pointer;">+ DODAJ PUNKT</button>
+    <button onclick="addNewPoint()" style="width:100%; padding:15px; margin:10px 0; border-radius:12px; border:none; background:#e2e8f0; font-weight:bold; cursor:pointer;">+ DODAJ KOLEJNY PUNKT</button>
 
-    <div id="loader" class="loading-overlay">⏳ Obliczam trasę autostradami...</div>
+    <div id="loader" class="loading-overlay">⏳ Trwa wyliczanie trasy...</div>
 
     <div class="summary-box">
-        <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;"><span>Dystans całkowity:</span> <b id="total-dist">0 km</b></div>
-        <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;"><span>Czas jazdy:</span> <b id="total-time">0h 0m</b></div>
+        <div class="sum-line"><span>Łączny dystans (pętla):</span> <b id="total-dist">0 km</b></div>
+        <div class="sum-line"><span>Czas jazdy:</span> <b id="total-time">0h 0m</b></div>
+        <div class="sum-line"><span>Koszt paliwa (0,49 €/km):</span> <b id="total-fuel">0,00 €</b></div>
+        <div id="min-msg" class="min-info">⚠️ Zastosowano stawkę minimalną 25,00 €</div>
+        <div class="sum-line"><span>Inspekcje (85 €/szt):</span> <b id="total-insp">0,00 €</b></div>
         <div class="sum-total"><span>DO ZAPŁATY:</span> <span id="total-all">0,00 €</span></div>
     </div>
 
@@ -59,8 +64,8 @@ function addNewPoint() {
     const html = `
         <div class="point-row" id="row-${id}">
             <button class="remove-btn" onclick="removePoint(${id})">×</button>
-            <label style="font-size:10px; color:#64748b; font-weight:bold;">ADRES OGLĘDZIN:</label>
-            <input type="text" placeholder="Np. 44135 Dortmund..." oninput="handleSearch(event, ${id})" autocomplete="off">
+            <label style="font-size:10px; color:#64748b; font-weight:bold;">MIEJSCE OGLĘDZIN:</label>
+            <input type="text" placeholder="Szukaj miasta / kodu..." oninput="handleSearch(event, ${id})" autocomplete="off">
             <div class="suggestions" id="sugg-${id}"></div>
             <input type="hidden" id="lat-${id}"><input type="hidden" id="lng-${id}">
             <div id="stats-${id}"></div>
@@ -80,24 +85,14 @@ async function handleSearch(e, id) {
     if(query.length < 3) { suggBox.style.display = 'none'; return; }
     
     try {
-        // Naprawiony URL: tylko podstawowe parametry dla stabilności
-        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`);
+        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=de`);
         const data = await res.json();
-        
         if (!data || !data.features) return;
 
         suggBox.innerHTML = '';
         suggBox.style.display = 'block';
         
-        // Filtrujemy tylko Niemcy
-        const deResults = data.features.filter(f => f.properties.countrycode === 'DE').slice(0, 5);
-        
-        if (deResults.length === 0) {
-            suggBox.innerHTML = '<div class="suggestion-item">Nie znaleziono adresu w DE</div>';
-            return;
-        }
-
-        deResults.forEach(f => {
+        data.features.filter(f => f.properties.countrycode === 'DE').forEach(f => {
             const d = document.createElement('div');
             d.className = 'suggestion-item';
             const p = f.properties;
@@ -112,7 +107,7 @@ async function handleSearch(e, id) {
             };
             suggBox.appendChild(d);
         });
-    } catch(err) { console.error("Search error:", err); }
+    } catch(err) { console.error(err); }
 }
 
 async function calculate() {
@@ -120,35 +115,39 @@ async function calculate() {
     const loader = document.getElementById('loader');
     let activePoints = [];
     
-    rows.forEach((row, index) => {
+    rows.forEach((row) => {
         const id = row.id.split('-')[1];
         const lat = document.getElementById(`lat-${id}`).value;
         const lng = document.getElementById(`lng-${id}`).value;
         if (lat && lng) {
-            activePoints.push([parseFloat(lng), parseFloat(lat)]);
+            activePoints.push({id, lat: parseFloat(lat), lng: parseFloat(lng)});
             row.classList.remove('is-last');
             document.getElementById(`stats-${id}`).innerHTML = '';
         }
     });
 
-    if (activePoints.length === 0) return;
+    if (activePoints.length === 0) {
+        updateSummary(0, 0, 0);
+        if(map && routeLayer) map.removeLayer(routeLayer);
+        return;
+    }
     
-    rows[rows.length-1].classList.add('is-last');
+    // Oznaczenie ostatniego elementu na liście
+    document.getElementById(`row-${activePoints[activePoints.length-1].id}`).classList.add('is-last');
     loader.style.display = 'block';
 
-    let allCoords = [[HOME.lng, HOME.lat], ...activePoints, [HOME.lng, HOME.lat]];
+    let allCoords = [[HOME.lng, HOME.lat], ...activePoints.map(p => [p.lng, p.lat]), [HOME.lng, HOME.lat]];
 
     try {
         const response = await fetch(`https://api.openrouteservice.org/v2/directions/driving-car/geojson`, {
             method: 'POST',
             headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': ORS_KEY 
+                'Authorization': ORS_KEY,
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({ 
                 coordinates: allCoords,
-                preference: 'fastest',
-                options: { avoid_features: ["unpavedroads", "ferries"] } 
+                preference: 'fastest'
             })
         });
         
@@ -159,32 +158,55 @@ async function calculate() {
             const summary = route.properties.summary;
             const dist = summary.distance / 1000;
             const time = summary.duration;
+            const segments = route.properties.segments;
 
-            document.getElementById('total-dist').innerText = dist.toFixed(1) + ' km';
-            document.getElementById('total-time').innerText = Math.floor(time/3600) + 'h ' + Math.floor((time%3600)/60) + 'm';
-            
-            const fuelCost = Math.max(25, dist * 0.49);
-            const total = fuelCost + (activePoints.length * 85);
-            document.getElementById('total-all').innerText = total.toFixed(2) + ' €';
+            // Wyświetlenie "Zawiera powrót" w ostatnim aktywnym punkcie
+            const lastPoint = activePoints[activePoints.length-1];
+            document.getElementById(`stats-${lastPoint.id}`).innerHTML = `
+                <div class="stat-badge">Punkt aktywny</div>
+                <div class="stat-badge badge-return">Zawiera powrót do bazy</div>
+            `;
 
-            document.getElementById('map').style.display = 'block';
-            if(!map) { 
-                map = L.map('map').setView([HOME.lat, HOME.lng], 8); 
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                L.marker([HOME.lat, HOME.lng]).addTo(map);
-            }
-            if(routeLayer) map.removeLayer(routeLayer);
-            routeLayer = L.geoJSON(route, { style: { color: '#2563eb', weight: 6, opacity: 0.8 } }).addTo(map);
-            map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
-
-            const lastId = rows[rows.length-1].id.split('-')[1];
-            document.getElementById(`stats-${lastId}`).innerHTML = '<div class="stat-badge badge-return">Trasa zawiera powrót do bazy</div>';
+            updateSummary(dist, time, activePoints.length);
+            updateMapView(route);
         }
     } catch(e) { 
-        console.error(e);
+        console.error("Błąd kalkulacji:", e);
     } finally {
         loader.style.display = 'none';
     }
+}
+
+function updateSummary(dist, time, count) {
+    document.getElementById('total-dist').innerText = dist.toFixed(1) + ' km';
+    document.getElementById('total-time').innerText = Math.floor(time/3600) + 'h ' + Math.floor((time%3600)/60) + 'm';
+    
+    // Logika ceny: 0,49e za km, ale nie mniej niż 25e
+    let fuelCost = dist * 0.49;
+    const minMsg = document.getElementById('min-msg');
+    
+    if (dist > 0 && fuelCost < 25) {
+        fuelCost = 25;
+        minMsg.style.display = 'block';
+    } else {
+        minMsg.style.display = 'none';
+    }
+
+    const inspCost = count * 85;
+    document.getElementById('total-fuel').innerText = fuelCost.toFixed(2) + ' €';
+    document.getElementById('total-insp').innerText = inspCost.toFixed(2) + ' €';
+    document.getElementById('total-all').innerText = (fuelCost + inspCost).toFixed(2) + ' €';
+}
+
+function updateMapView(route) {
+    document.getElementById('map').style.display = 'block';
+    if(!map) { 
+        map = L.map('map').setView([HOME.lat, HOME.lng], 8); 
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    }
+    if(routeLayer) map.removeLayer(routeLayer);
+    routeLayer = L.geoJSON(route, { style: { color: '#2563eb', weight: 6, opacity: 0.8 } }).addTo(map);
+    map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
 }
 
 addNewPoint();
